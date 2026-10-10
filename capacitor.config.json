@@ -1,0 +1,13 @@
+{
+  "appId": "id.web.yasamdev.yasamgit",
+  "appName": "YasamGit",
+  "webDir": "www",
+  "server": {
+    "url": "https://terminal.yasamdev.web.id/",
+    "cleartext": false,
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
