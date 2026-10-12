@@ -1,7 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/build", "destination": "/api/build.js" },
-    { "source": "/api/status", "destination": "/api/status.js" },
-    { "source": "/api/download", "destination": "/api/download.js" }
-  ]
-}
