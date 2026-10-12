@@ -1,3 +1,4 @@
+
 name: Build WebView APK
 
 on:
@@ -22,7 +23,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+
     steps:
       - name: Validate inputs
         env:
@@ -31,32 +33,42 @@ jobs:
           PACKAGE_NAME: ${{ inputs.package_name }}
         run: |
           python - <<'PY'
-          import os, re
+          import os
+          import re
           from urllib.parse import urlparse
+
           u = urlparse(os.environ["WEBSITE_URL"])
           if u.scheme != "https" or not u.hostname or u.username or u.password:
-              raise SystemExit("URL must be HTTPS and contain no credentials")
+              raise SystemExit("URL must be a valid HTTPS URL")
+
           name = os.environ["APP_NAME"]
           if not name or len(name) > 40 or any(ord(c) < 32 or c in "<>" for c in name):
               raise SystemExit("Invalid app name")
+
           if not re.fullmatch(r"[a-z][a-z0-9]*(\.[a-z][a-z0-9]*){1,6}", os.environ["PACKAGE_NAME"]):
-              raise SystemExit("Invalid package name")
+              raise SystemExit("Invalid package ID")
           PY
 
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
+      # Explicit packages prevent setup-android from
+      # trying to install the obsolete package named "tools".
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
 
-      - name: Install Android SDK packages
-        run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Create minimal Android project
+      - name: Create Android project
         env:
           WEBSITE_URL: ${{ inputs.website_url }}
           APP_NAME: ${{ inputs.app_name }}
@@ -64,107 +76,192 @@ jobs:
         run: |
           mkdir -p app/src/main/java
           mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/drawable
+
           python - <<'PY'
-          import os, pathlib, re
+          import os
+          import pathlib
+          import html
+
           pkg = os.environ["PACKAGE_NAME"]
-          path = pathlib.Path("app/src/main/java") / pathlib.Path(pkg.replace(".", "/"))
-          path.mkdir(parents=True, exist_ok=True)
-          (path / "MainActivity.java").write_text(r'''package __PACKAGE__;
+          url = os.environ["WEBSITE_URL"]
+
+          java_dir = pathlib.Path("app/src/main/java") / pkg.replace(".", "/")
+          java_dir.mkdir(parents=True, exist_ok=True)
+
+          java_code = r'''package __PACKAGE__;
 
           import android.app.Activity;
           import android.os.Bundle;
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
           import android.webkit.WebChromeClient;
-          import android.webkit.WebResourceRequest;
           import android.webkit.WebSettings;
           import android.view.ViewGroup;
-          import android.view.KeyEvent;
 
           public class MainActivity extends Activity {
               private WebView webView;
-              @Override public void onCreate(Bundle savedInstanceState) {
+
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
+
                   webView = new WebView(this);
-                  webView.setLayoutParams(new ViewGroup.LayoutParams(-1, -1));
+                  webView.setLayoutParams(
+                      new ViewGroup.LayoutParams(
+                          ViewGroup.LayoutParams.MATCH_PARENT,
+                          ViewGroup.LayoutParams.MATCH_PARENT
+                      )
+                  );
+
                   WebSettings settings = webView.getSettings();
                   settings.setJavaScriptEnabled(true);
                   settings.setDomStorageEnabled(true);
+
                   webView.setWebViewClient(new WebViewClient());
                   webView.setWebChromeClient(new WebChromeClient());
                   setContentView(webView);
-                  if (savedInstanceState != null) webView.restoreState(savedInstanceState);
-                  else webView.loadUrl("__URL__");
+
+                  if (savedInstanceState != null) {
+                      webView.restoreState(savedInstanceState);
+                  } else {
+                      webView.loadUrl("__URL__");
+                  }
               }
-              @Override protected void onSaveInstanceState(Bundle outState) {
+
+              @Override
+              protected void onSaveInstanceState(Bundle outState) {
                   super.onSaveInstanceState(outState);
-                  if (webView != null) webView.saveState(outState);
+                  if (webView != null) {
+                      webView.saveState(outState);
+                  }
               }
-              @Override public void onBackPressed() {
-                  if (webView != null && webView.canGoBack()) webView.goBack();
-                  else super.onBackPressed();
+
+              @Override
+              public void onBackPressed() {
+                  if (webView != null && webView.canGoBack()) {
+                      webView.goBack();
+                  } else {
+                      super.onBackPressed();
+                  }
               }
           }
-          '''.replace("__PACKAGE__", pkg).replace("__URL__", os.environ["WEBSITE_URL"]), encoding="utf-8")
-          PY
+          '''
 
-          cat > settings.gradle <<'EOF'
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          java_code = (
+              java_code
+              .replace("__PACKAGE__", pkg)
+              .replace("__URL__", url)
+          )
+
+          (java_dir / "MainActivity.java").write_text(
+              java_code, encoding="utf-8"
+          )
+
+          settings_gradle = """\
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
           dependencyResolutionManagement {
-            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-            repositories { google(); mavenCentral() }
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           rootProject.name = "Web2APK"
           include(":app")
-          EOF
+          """
 
-          cat > build.gradle <<'EOF'
-          plugins {
-            id 'com.android.application' version '8.7.3' apply false
+          pathlib.Path("settings.gradle").write_text(
+              settings_gradle, encoding="utf-8"
+          )
+
+          pathlib.Path("build.gradle").write_text(
+              """plugins {
+              id 'com.android.application' version '8.7.3' apply false
           }
-          EOF
+          """,
+              encoding="utf-8"
+          )
 
-          cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
+          pathlib.Path("gradle.properties").write_text(
+              """org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
           android.useAndroidX=true
           android.nonTransitiveRClass=true
-          EOF
+          """,
+              encoding="utf-8"
+          )
 
-          cat > app/build.gradle <<'EOF'
-          plugins { id 'com.android.application' }
-          android {
-            namespace = System.getenv("PACKAGE_NAME")
-            compileSdk 35
-            defaultConfig {
-              applicationId System.getenv("PACKAGE_NAME")
-              minSdk 23
-              targetSdk 28
-              versionCode 1
-              versionName "1.0"
-            }
+          app_gradle = """\
+          plugins {
+              id 'com.android.application'
           }
-          EOF
 
-          python - <<'PY'
-          import os, pathlib, html
-          app_name = html.escape(os.environ["APP_NAME"], quote=True)
-          (pathlib.Path("app/src/main/res/values/strings.xml")).write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n<resources><string name="app_name">'+app_name+'</string></resources>\n',
-              encoding="utf-8")
-          (pathlib.Path("app/src/main/AndroidManifest.xml")).write_text('''<?xml version="1.0" encoding="utf-8"?>
+          android {
+              namespace = System.getenv("PACKAGE_NAME")
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId System.getenv("PACKAGE_NAME")
+                  minSdk 23
+                  targetSdk 28
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          """
+
+          pathlib.Path("app/build.gradle").write_text(
+              app_gradle, encoding="utf-8"
+          )
+
+          app_name = html.escape(
+              os.environ["APP_NAME"], quote=False
+          )
+          strings = (
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<resources><string name="app_name">'
+              + app_name
+              + '</string></resources>\n'
+          )
+
+          pathlib.Path(
+              "app/src/main/res/values/strings.xml"
+          ).write_text(strings, encoding="utf-8")
+
+          manifest = """\
+          <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.INTERNET"/>
-            <application android:label="@string/app_name" android:usesCleartextTraffic="false" android:allowBackup="false" android:supportsRtl="true" android:theme="@android:style/Theme.Material.Light.NoActionBar">
-              <activity android:name="'''+os.environ["PACKAGE_NAME"]+'''.MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">
-                <intent-filter>
-                  <action android:name="android.intent.action.MAIN"/>
-                  <category android:name="android.intent.category.LAUNCHER"/>
-                </intent-filter>
-              </activity>
-            </application>
+              <uses-permission android:name="android.permission.INTERNET"/>
+
+              <application
+                  android:label="@string/app_name"
+                  android:usesCleartextTraffic="false"
+                  android:allowBackup="false"
+                  android:supportsRtl="true"
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+                  <activity
+                      android:name=".""" + pkg + """.MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize|keyboardHidden">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
           </manifest>
-          ''', encoding="utf-8")
+          """
+
+          pathlib.Path(
+              "app/src/main/AndroidManifest.xml"
+          ).write_text(manifest, encoding="utf-8")
           PY
 
       - name: Setup Gradle
@@ -173,11 +270,9 @@ jobs:
           gradle-version: "8.9"
 
       - name: Build debug APK
-        env:
-          PACKAGE_NAME: ${{ inputs.package_name }}
         run: gradle --no-daemon assembleDebug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: web2apk-debug-apk
