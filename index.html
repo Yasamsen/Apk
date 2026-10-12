@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>Web2APK Gratis</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="logo">APK</div>
+      <div><p class="eyebrow">ANDROID WEBVIEW BUILDER</p><h1>Website jadi APK</h1></div>
+    </header>
+    <p class="intro">Buat aplikasi Android ringan dari website HTTPS. Proses build berjalan di GitHub Actions.</p>
+    <form id="buildForm">
+      <label for="url">URL website</label>
+      <input id="url" name="url" type="url" placeholder="https://contoh.com" required>
+      <label for="appName">Nama aplikasi</label>
+      <input id="appName" name="appName" maxlength="40" placeholder="Aplikasi Saya" required>
+      <label for="packageName">Package ID</label>
+      <input id="packageName" name="packageName" value="com.example.webapp" maxlength="120" required>
+      <p class="hint">Contoh: com.namakamu.aplikasi (huruf kecil, angka, titik).</p>
+      <button id="submit" type="submit">Mulai Build APK</button>
+    </form>
+    <section id="status" class="status" hidden aria-live="polite"></section>
+    <aside><strong>Catatan:</strong> Versi awal menghasilkan debug APK. Build membutuhkan waktu dan mengikuti kuota gratis GitHub Actions. Jangan masukkan password atau token pribadi di formulir ini.</aside>
+    <footer>Web2APK Gratis · Open-source starter</footer>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
