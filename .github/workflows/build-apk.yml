@@ -116,7 +116,6 @@ jobs:
           import android.app.Activity;
           import android.os.Bundle;
           import android.webkit.WebView;
-          import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
           import android.webkit.WebViewClient;
           import android.webkit.WebChromeClient;
           import android.webkit.WebResourceRequest;
@@ -156,7 +155,6 @@ jobs:
               private static final int FILE_CHOOSER_CODE = 7003;
               private static final int WEB_PERMISSION_CODE = 7001;
               private static final int GEO_PERMISSION_CODE = 7002;
-              private SwipeRefreshLayout swipeRefresh;
               private String startUrl = "__URL__";
               private final class BlobDownloadBridge {
                   @JavascriptInterface public void saveBlob(String dataUrl, String requestedName, String requestedMime) {
@@ -202,11 +200,9 @@ jobs:
               }
               @Override public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  swipeRefresh = new SwipeRefreshLayout(this);
+                  // Gunakan WebView langsung tanpa SwipeRefreshLayout agar swipe vertikal
+                  // untuk scroll tidak dianggap sebagai perintah reload halaman.
                   webView = new WebView(this);
-                  webView.setLayoutParams(new SwipeRefreshLayout.LayoutParams(-1, -1));
-                  swipeRefresh.addView(webView);
-                  swipeRefresh.setOnRefreshListener(() -> webView.reload());
                   WebSettings settings = webView.getSettings();
                   settings.setJavaScriptEnabled(true);
                   settings.setDomStorageEnabled(true);
@@ -215,11 +211,9 @@ jobs:
                   webView.setWebViewClient(new WebViewClient() {
                       @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
                           super.onPageStarted(view, url, favicon);
-                          swipeRefresh.setRefreshing(true);
                       }
                       @Override public void onPageFinished(WebView view, String url) {
                           super.onPageFinished(view, url);
-                          swipeRefresh.setRefreshing(false);
                       }
                       @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                           if ("app".equals(request.getUrl().getScheme()) && "retry".equals(request.getUrl().getHost())) {
@@ -315,7 +309,7 @@ jobs:
                           android.widget.Toast.makeText(MainActivity.this, "Gagal memulai download: " + reason, android.widget.Toast.LENGTH_LONG).show();
                       }
                   });
-                  setContentView(swipeRefresh);
+                  setContentView(webView);
                   if (savedInstanceState != null) webView.restoreState(savedInstanceState);
                   else webView.loadUrl(startUrl);
               }
@@ -402,7 +396,6 @@ jobs:
             }
           }
           dependencies {
-            implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
           }
           EOF
 
