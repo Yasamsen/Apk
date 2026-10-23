@@ -1,0 +1,35 @@
+/* Cegah pull-to-refresh browser saat pengguna menggeser halaman di HP.
+   Scroll vertikal biasa tetap aktif. */
+html{overscroll-behavior-y:none;overscroll-behavior-x:none}
+body{overscroll-behavior-y:none;overscroll-behavior-x:none}
+:root{color-scheme:dark;--bg:#0b1120;--card:#111b2e;--line:#26354c;--text:#eef4ff;--muted:#a8b6ca;--accent:#57d3a5}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#182846,var(--bg) 55%);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text);min-height:100vh}.wrap{width:min(100% - 32px,560px);margin:0 auto;padding:36px 0}header{display:flex;gap:14px;align-items:center}.logo{display:grid;place-items:center;width:54px;height:54px;border-radius:16px;background:var(--accent);color:#05281d;font-weight:900}h1{font-size:clamp(26px,6vw,38px);margin:2px 0}.eyebrow{letter-spacing:.15em;font-size:11px;color:var(--accent);font-weight:800;margin:0}.intro{color:var(--muted);line-height:1.6;margin:20px 0 24px}form{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;display:grid;gap:10px}label{font-size:14px;font-weight:700;margin-top:5px}input{width:100%;padding:14px;border-radius:11px;border:1px solid var(--line);background:#0a1221;color:var(--text);font:inherit;outline:none}input:focus{border-color:var(--accent)}.hint{margin:0;color:var(--muted);font-size:12px}button{margin-top:12px;padding:14px;border:0;border-radius:11px;background:var(--accent);color:#05281d;font:inherit;font-weight:800;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.status{margin-top:16px;border:1px solid var(--line);background:var(--card);padding:16px;border-radius:14px;line-height:1.6;overflow-wrap:anywhere}.status a{color:var(--accent)}aside{margin-top:18px;padding:14px;border-left:3px solid #eabf65;background:#171d2a;color:var(--muted);font-size:13px;line-height:1.6}footer{text-align:center;color:var(--muted);font-size:12px;padding:28px 0}
+.download-button{display:inline-block;margin:10px 0;padding:13px 18px;border-radius:11px;background:var(--accent);color:#05281d!important;text-decoration:none;font-weight:900}.status p{margin:0 0 10px}.status p:last-child{margin-bottom:0}.status a:not(.download-button){display:block;margin-top:10px}
+
+input[type="file"]{padding:10px;font-size:13px}input[type="file"]::file-selector-button{margin-right:10px;padding:8px 10px;border:0;border-radius:7px;background:#26354c;color:var(--text)}
+
+/* ===== Tampilan status & unduhan APK ===== */
+.stepper{list-style:none;margin:0 0 16px;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.stepper li{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--muted);position:relative}
+.stepper li:not(:last-child)::after{content:"";position:absolute;top:13px;left:calc(50% + 17px);width:calc(100% - 34px);height:2px;background:var(--line)}
+.stepper li.done:not(:last-child)::after{background:var(--accent)}
+.stepper .dot{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--line);background:#0a1221;font-weight:800;font-size:12px}
+.stepper .done .dot{background:var(--accent);border-color:var(--accent);color:#05281d}
+.stepper .current .dot{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px rgba(87,211,165,.18)}
+.stepper .failed .dot{border-color:#ff7b7b;color:#ff7b7b}
+.stepper .current .lbl,.stepper .done .lbl{color:var(--text)}
+.status .msg{text-align:center}
+.status.error{border-color:#6b2f37}
+.bar{height:4px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:12px;position:relative}
+.bar::after{content:"";position:absolute;inset:0 auto 0 0;width:35%;background:var(--accent);border-radius:4px;animation:slide 1.3s ease-in-out infinite}
+@keyframes slide{0%{left:-35%}100%{left:100%}}
+.apk-card{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#0a1221}
+.apk-icon{width:48px;height:48px;border-radius:12px;background:var(--accent);color:#05281d;font-weight:900;font-size:13px;display:grid;place-items:center;flex:none}
+.apk-info{display:flex;flex-direction:column;min-width:0}
+.apk-info strong{overflow-wrap:anywhere}
+.apk-info .meta{color:var(--muted);font-size:12px}
+.status .download-button{display:block;text-align:center;margin:14px 0 8px;font-size:16px;padding:15px 18px}
+.hint.center{text-align:center}
+.guide{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;font-size:13px;color:var(--muted)}
+.guide summary{cursor:pointer;font-weight:700;color:var(--text)}
+.guide ol{margin:10px 0 0;padding-left:20px;line-height:1.7}
+.status .detail-link{font-size:12px;text-align:center}
