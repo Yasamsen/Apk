@@ -4,29 +4,86 @@ const statusBox = document.querySelector('#status');
 let pollTimer = null;
 let currentBuildAfter = null;
 
-function showStatus(message, actionsUrl, downloadUrl) {
+let currentAppName = '';
+const STEPS = ['Terkirim', 'Antre', 'Membangun', 'Siap'];
+const STATE_STEP = { sending: 0, waiting: 1, queued: 1, in_progress: 2, success: 4 };
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function formatExpiry(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+function buildStepper(active, failed) {
+  const list = el('ol', 'stepper');
+  STEPS.forEach((label, i) => {
+    const li = el('li');
+    if (i < active) li.className = 'done';
+    else if (i === active) li.className = failed ? 'failed' : 'current';
+    li.append(el('span', 'dot', i < active ? '✓' : String(i + 1)), el('span', 'lbl', label));
+    list.append(li);
+  });
+  return list;
+}
+
+function showStatus(message, actionsUrl, downloadUrl, state = 'sending', expiresAt = '') {
   statusBox.replaceChildren();
-  const p = document.createElement('p');
-  p.textContent = message;
-  statusBox.append(p);
+  statusBox.className = 'status';
+
+  // Selesai: tampilkan kartu unduhan APK
   if (downloadUrl) {
-    const download = document.createElement('a');
-    download.href = downloadUrl;
-    download.className = 'download-button';
-    download.textContent = '⬇ Download APK';
-    download.setAttribute('download', 'Web2APK-Android.zip');
+    statusBox.classList.add('ready');
+    statusBox.append(buildStepper(4, false));
+    const card = el('div', 'apk-card');
+    card.append(el('div', 'apk-icon', 'APK'));
+    const info = el('div', 'apk-info');
+    const fileName = (currentAppName || 'Web2APK-Android') + '.apk';
+    info.append(el('strong', '', fileName), el('span', 'meta', 'Siap dipasang di Android 5.0 ke atas'));
+    card.append(info);
+    statusBox.append(card);
+
+    const download = el('a', 'download-button', '⬇ Download APK');
+    download.href = downloadUrl + (currentAppName ? '?name=' + encodeURIComponent(currentAppName) : '');
+    download.setAttribute('download', fileName);
     statusBox.append(download);
-    const note = document.createElement('p');
-    note.className = 'hint';
-    note.textContent = 'File unduhan berbentuk ZIP. Ekstrak ZIP, lalu pasang app-debug.apk.';
-    statusBox.append(note);
+
+    const until = formatExpiry(expiresAt);
+    if (until) statusBox.append(el('p', 'hint center', 'Tersedia sampai ' + until + '. Setelah itu, jalankan build lagi.'));
+
+    const guide = el('details', 'guide');
+    guide.open = true;
+    guide.append(el('summary', '', 'Cara memasang'));
+    const ol = el('ol');
+    [
+      'Ketuk Download APK, lalu buka file yang terunduh.',
+      'Jika diminta, izinkan "Instal aplikasi tidak dikenal" untuk browser/Files yang dipakai.',
+      'Ketuk Instal. Jika pernah memasang versi lama dengan package ID sama, hapus dulu aplikasi lama.'
+    ].forEach(t => ol.append(el('li', '', t)));
+    guide.append(ol);
+    statusBox.append(guide);
+  } else {
+    // Sedang proses / gagal / error
+    const failed = ['failed', 'ready-expired', 'error'].includes(state);
+    const active = failed ? (state === 'ready-expired' ? 3 : 2) : (STATE_STEP[state] ?? 0);
+    if (failed) statusBox.classList.add('error');
+    statusBox.append(buildStepper(active, failed));
+    statusBox.append(el('p', 'msg', message));
+    if (!failed && state !== 'success') statusBox.append(el('div', 'bar'));
   }
+
   if (actionsUrl) {
-    const a = document.createElement('a');
+    const a = el('a', 'detail-link', 'Lihat detail build di GitHub Actions ↗');
     a.href = actionsUrl;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
-    a.textContent = 'Lihat detail build di GitHub Actions ↗';
     statusBox.append(a);
   }
 }
@@ -48,13 +105,13 @@ async function checkBuild() {
     const response = await fetch('/api/status' + (currentBuildAfter ? '?after=' + encodeURIComponent(currentBuildAfter) : ''), { cache: 'no-store' });
     const data = await readApiResponse(response, '/api/status');
     if (!response.ok) throw new Error(data.error || 'Gagal memeriksa status build.');
-    showStatus(data.message || 'Memeriksa status build…', data.actionsUrl, data.state === 'success' ? data.downloadUrl : null);
+    showStatus(data.message || 'Memeriksa status build…', data.actionsUrl, data.state === 'success' ? data.downloadUrl : null, data.state, data.expiresAt);
     if (['success', 'failed', 'ready-expired'].includes(data.state)) {
       if (pollTimer) clearInterval(pollTimer);
       button.disabled = false;
     }
   } catch (error) {
-    showStatus(error.message || 'Belum bisa memeriksa status build. Coba lagi sebentar.');
+    showStatus(error.message || 'Belum bisa memeriksa status build. Coba lagi sebentar.', null, null, 'error');
   }
 }
 
@@ -63,8 +120,9 @@ form.addEventListener('submit', async (event) => {
   if (pollTimer) clearInterval(pollTimer);
   button.disabled = true;
   statusBox.hidden = false;
-  showStatus('Mengirim permintaan build…');
+  showStatus('Mengirim permintaan build…', null, null, 'sending');
   try {
+    currentAppName = document.querySelector('#appName').value.trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
     const payload = {
       url: document.querySelector('#url').value.trim(),
       appName: document.querySelector('#appName').value.trim(),
@@ -81,11 +139,11 @@ form.addEventListener('submit', async (event) => {
     const data = await readApiResponse(response, '/api/build');
     if (!response.ok) throw new Error(data.error || 'Permintaan gagal.');
     currentBuildAfter = data.dispatchedAt || new Date().toISOString();
-    showStatus('Permintaan build berhasil. APK sedang dibuat; halaman ini akan memunculkan tombol download setelah selesai.', data.actionsUrl);
+    showStatus('Permintaan diterima. Tombol download APK akan muncul otomatis di sini setelah build selesai (biasanya beberapa menit).', data.actionsUrl, null, 'waiting');
     pollTimer = setInterval(checkBuild, 8000);
     setTimeout(checkBuild, 2500);
   } catch (error) {
-    showStatus(error.message || 'Terjadi kesalahan.');
+    showStatus(error.message || 'Terjadi kesalahan.', null, null, 'error');
     button.disabled = false;
   }
 });
