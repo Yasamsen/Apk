@@ -21,7 +21,7 @@ Ini adalah starter/MVP, bukan layanan publik siap skala besar. GitHub Actions me
    - `GH_REPO` = nama repository
 7. Deploy / redeploy Vercel.
 8. Buka website Vercel, isi URL HTTPS, nama aplikasi, dan package ID. Tekan **Mulai Build**.
-9. Buka link GitHub Actions yang ditampilkan. Setelah workflow selesai, buka run terbaru → **Artifacts** → unduh `web2apk-debug-apk.zip`, lalu ekstrak dan pasang APK.
+9. Tunggu sampai indikator progres di website menunjukkan **Siap**, lalu ketuk **Download APK**. File yang terunduh langsung berupa `.apk` (tanpa ZIP) dan bisa langsung dipasang.
 
 ## Batasan versi awal
 - Hasilnya adalah debug APK untuk pengujian, bukan rilis Play Store.
@@ -38,7 +38,7 @@ Ini adalah starter/MVP, bukan layanan publik siap skala besar. GitHub Actions me
 
 
 ## Jika APK terunduh tetapi tidak bisa dipasang di Android 10
-1. Pastikan yang dipasang adalah `app-debug.apk`, bukan file ZIP artefak. Ekstrak `web2apk-debug-apk.zip` terlebih dahulu.
+1. Pastikan file yang dipasang berekstensi `.apk`. Website sekarang mengirim APK langsung, jadi tidak perlu ekstrak ZIP lagi.
 2. Jika pernah memasang build lama dengan package ID yang sama, hapus aplikasi lama lalu pasang APK baru. APK debug dari build GitHub berbeda dapat ditandatangani dengan kunci debug berbeda sehingga pembaruan langsung ditolak.
 3. Buka Pengaturan Android → Aplikasi/Keamanan → Izinkan instalasi aplikasi tidak dikenal untuk aplikasi yang dipakai membuka APK (misalnya Files/Chrome). Nama menu berbeda antarperangkat.
 4. Workflow saat ini memakai `minSdk 21` (Android 5.0+) dan `targetSdk 29` (Android 10), serta `compileSdk 35`. Jika tetap gagal, catat pesan lengkap dari pemasang paket atau periksa apakah APK benar-benar selesai diunduh dan diekstrak.
